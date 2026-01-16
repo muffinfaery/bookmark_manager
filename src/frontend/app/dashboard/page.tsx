@@ -28,6 +28,7 @@ import { useBookmarks } from '@/hooks/useBookmarks';
 import Sidebar from '@/components/Sidebar';
 import MobileBottomNav from '@/components/MobileBottomNav';
 import BookmarkCard from '@/components/BookmarkCard';
+import SortableBookmarkGrid from '@/components/SortableBookmarkGrid';
 import AddBookmarkDialog from '@/components/AddBookmarkDialog';
 import ImportDialog from '@/components/ImportDialog';
 import ExportDialog from '@/components/ExportDialog';
@@ -76,6 +77,7 @@ export default function DashboardPage() {
     exportData,
     importData,
     refreshData,
+    reorderBookmarks,
   } = useBookmarks();
 
   const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -357,45 +359,16 @@ export default function DashboardPage() {
                 Add Bookmark
               </Button>
             </Box>
-          ) : viewMode === 'grid' ? (
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: {
-                  xs: '1fr',
-                  sm: 'repeat(2, 1fr)',
-                  md: 'repeat(3, 1fr)',
-                  lg: 'repeat(4, 1fr)',
-                },
-                gap: 2,
-              }}
-            >
-              {filteredBookmarks.map((bookmark) => (
-                <BookmarkCard
-                  key={bookmark.id}
-                  bookmark={bookmark}
-                  onEdit={handleEditBookmark}
-                  onDelete={handleDeleteBookmark}
-                  onToggleFavorite={toggleFavorite}
-                  onClick={handleBookmarkClick}
-                  viewMode={viewMode}
-                />
-              ))}
-            </Box>
           ) : (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-              {filteredBookmarks.map((bookmark) => (
-                <BookmarkCard
-                  key={bookmark.id}
-                  bookmark={bookmark}
-                  onEdit={handleEditBookmark}
-                  onDelete={handleDeleteBookmark}
-                  onToggleFavorite={toggleFavorite}
-                  onClick={handleBookmarkClick}
-                  viewMode={viewMode}
-                />
-              ))}
-            </Box>
+            <SortableBookmarkGrid
+              bookmarks={filteredBookmarks}
+              viewMode={viewMode}
+              onEdit={handleEditBookmark}
+              onDelete={handleDeleteBookmark}
+              onToggleFavorite={toggleFavorite}
+              onClick={handleBookmarkClick}
+              onReorder={reorderBookmarks}
+            />
           )}
         </Box>
       </Box>

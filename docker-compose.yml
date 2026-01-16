@@ -28,14 +28,11 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:80
-      - ConnectionStrings__DefaultConnection=Host=db;Database=bookmark_manager;Username=postgres;Password=postgres
+      - ConnectionStrings__DefaultConnection=Host=${DB_HOST};Port=${DB_PORT};Database=${DB_NAME};Username=${DB_USER};Password=${DB_PASSWORD};SSL Mode=${DB_SSLMODE}
       - Cors__AllowedOrigins__0=http://localhost:3003
       - Cors__AllowedOrigins__1=http://frontend:3000
     ports:
       - "5001:80"
-    depends_on:
-      db:
-        condition: service_healthy
     restart: unless-stopped
 
   # Next.js Frontend

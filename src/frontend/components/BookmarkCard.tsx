@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, memo, useCallback } from 'react';
 import {
   Card,
   CardContent,
@@ -37,7 +37,7 @@ interface BookmarkCardProps {
   viewMode: 'grid' | 'list';
 }
 
-export default function BookmarkCard({
+function BookmarkCard({
   bookmark,
   onEdit,
   onDelete,
@@ -47,57 +47,61 @@ export default function BookmarkCard({
 }: BookmarkCardProps) {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+  const handleMenuOpen = useCallback((event: React.MouseEvent<HTMLElement>) => {
     event.stopPropagation();
     event.preventDefault();
     setAnchorEl(event.currentTarget);
-  };
+  }, []);
 
-  const handleMenuClose = (event?: React.MouseEvent | {}) => {
+  const handleMenuClose = useCallback((event?: React.MouseEvent | {}) => {
     if (event && 'stopPropagation' in event) {
       (event as React.MouseEvent).stopPropagation();
       (event as React.MouseEvent).preventDefault();
     }
     setAnchorEl(null);
-  };
+  }, []);
 
-  const handleEdit = (event: React.MouseEvent) => {
+  const handleEdit = useCallback((event: React.MouseEvent) => {
     event.stopPropagation();
     event.preventDefault();
-    handleMenuClose();
+    setAnchorEl(null);
     onEdit(bookmark);
-  };
+  }, [bookmark, onEdit]);
 
-  const handleDelete = (event: React.MouseEvent) => {
+  const handleDelete = useCallback((event: React.MouseEvent) => {
     event.stopPropagation();
     event.preventDefault();
-    handleMenuClose();
+    setAnchorEl(null);
     onDelete(bookmark.id);
-  };
+  }, [bookmark.id, onDelete]);
 
-  const handleCopyUrl = (event: React.MouseEvent) => {
+  const handleCopyUrl = useCallback((event: React.MouseEvent) => {
     event.stopPropagation();
     event.preventDefault();
     navigator.clipboard.writeText(bookmark.url);
-    handleMenuClose();
-  };
+    setAnchorEl(null);
+  }, [bookmark.url]);
 
-  const handleOpenInNewTab = (event: React.MouseEvent) => {
+  const handleOpenInNewTab = useCallback((event: React.MouseEvent) => {
     event.stopPropagation();
     event.preventDefault();
     window.open(bookmark.url, '_blank', 'noopener,noreferrer');
     onClick(bookmark);
-  };
+  }, [bookmark, onClick]);
 
-  const getFaviconUrl = () => {
-    if (bookmark.favicon) return bookmark.favicon;
+  const handleToggleFavorite = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    onToggleFavorite(bookmark.id);
+  }, [bookmark.id, onToggleFavorite]);
+
+  const faviconUrl = bookmark.favicon || (() => {
     try {
       const url = new URL(bookmark.url);
       return `https://www.google.com/s2/favicons?domain=${url.hostname}&sz=32`;
     } catch {
       return null;
     }
-  };
+  })();
 
   if (viewMode === 'list') {
     return (
@@ -110,10 +114,10 @@ export default function BookmarkCard({
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
-          {getFaviconUrl() && (
+          {faviconUrl && (
             <Box
               component="img"
-              src={getFaviconUrl()!}
+              src={faviconUrl}
               alt=""
               sx={{ width: 20, height: 20, mr: 2, flexShrink: 0 }}
               onError={(e: any) => (e.target.style.display = 'none')}
@@ -141,13 +145,7 @@ export default function BookmarkCard({
         </Stack>
 
         <Box sx={{ display: 'flex', alignItems: 'center', ml: 2 }}>
-          <IconButton
-            size="small"
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleFavorite(bookmark.id);
-            }}
-          >
+          <IconButton size="small" onClick={handleToggleFavorite}>
             {bookmark.isFavorite ? <Star color="warning" /> : <StarBorder />}
           </IconButton>
           <Tooltip title="Open in new tab">
@@ -189,19 +187,14 @@ export default function BookmarkCard({
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        transition: 'transform 0.2s, box-shadow 0.2s',
-        '&:hover': {
-          transform: 'translateY(-2px)',
-          boxShadow: 4,
-        },
       }}
     >
       <CardContent sx={{ flex: 1, pb: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 1 }}>
-          {getFaviconUrl() && (
+          {faviconUrl && (
             <Box
               component="img"
-              src={getFaviconUrl()!}
+              src={faviconUrl}
               alt=""
               sx={{ width: 24, height: 24, mr: 1.5, mt: 0.5, flexShrink: 0 }}
               onError={(e: any) => (e.target.style.display = 'none')}
@@ -224,10 +217,7 @@ export default function BookmarkCard({
           </Box>
           <IconButton
             size="small"
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleFavorite(bookmark.id);
-            }}
+            onClick={handleToggleFavorite}
             sx={{ ml: 1, mt: -0.5 }}
           >
             {bookmark.isFavorite ? (
@@ -340,3 +330,5 @@ export default function BookmarkCard({
     </Card>
   );
 }
+
+export default memo(BookmarkCard);
