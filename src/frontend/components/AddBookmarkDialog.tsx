@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
-import Fuse from 'fuse.js';
 import {
   Dialog,
   DialogTitle,
@@ -14,12 +13,10 @@ import {
   Chip,
   CircularProgress,
   Alert,
-  IconButton,
-  InputAdornment,
-  createFilterOptions,
 } from '@mui/material';
 import { Add } from '@mui/icons-material';
 import { Bookmark, Folder, Tag, CreateBookmarkDto, UpdateBookmarkDto } from '@/types';
+import { isValidUrl, createFolderSearcher, findFolderByName } from '@/lib/utils';
 
 interface FolderOption {
   id: string;
@@ -37,15 +34,6 @@ interface AddBookmarkDialogProps {
   onFetchMetadata?: (url: string) => Promise<{ title?: string; description?: string; favicon?: string }>;
   onCreateFolder?: (name: string) => Promise<Folder>;
 }
-
-const isValidUrl = (urlString: string): boolean => {
-  try {
-    const url = new URL(urlString);
-    return url.protocol === 'http:' || url.protocol === 'https:';
-  } catch {
-    return false;
-  }
-};
 
 export default function AddBookmarkDialog({
   open,
@@ -73,14 +61,8 @@ export default function AddBookmarkDialog({
   const [folderError, setFolderError] = useState('');
   const tagsInputRef = useRef<HTMLInputElement>(null);
 
-  // Configure Fuse.js for fuzzy folder search
-  const folderFuse = useMemo(() => {
-    return new Fuse(folders, {
-      keys: ['name'],
-      threshold: 0.4,
-      ignoreLocation: true,
-    });
-  }, [folders]);
+  // Configure Fuse.js for fuzzy folder search using utility function
+  const folderFuse = useMemo(() => createFolderSearcher(folders), [folders]);
 
   // Get selected folder object
   const selectedFolder = useMemo(() => {
@@ -303,10 +285,8 @@ export default function AddBookmarkDialog({
             onChange={async (_, newValue) => {
               setFolderError(''); // Clear any previous error
               if (typeof newValue === 'string') {
-                // User typed and pressed enter
-                const existing = folders.find(
-                  (f) => f.name.toLowerCase() === newValue.toLowerCase()
-                );
+                // User typed and pressed enter - use utility function
+                const existing = findFolderByName(folders, newValue);
                 if (existing) {
                   setSelectedFolderId(existing.id);
                 } else if (onCreateFolder) {

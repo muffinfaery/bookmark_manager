@@ -27,7 +27,6 @@ import { useThemeMode } from '@/components/ThemeRegistry';
 import { useBookmarks } from '@/hooks/useBookmarks';
 import Sidebar from '@/components/Sidebar';
 import MobileBottomNav from '@/components/MobileBottomNav';
-import BookmarkCard from '@/components/BookmarkCard';
 import SortableBookmarkGrid from '@/components/SortableBookmarkGrid';
 import AddBookmarkDialog from '@/components/AddBookmarkDialog';
 import ImportDialog from '@/components/ImportDialog';
@@ -39,8 +38,6 @@ import SignInDialog from '@/components/SignInDialog';
 import MigrationDialog from '@/components/MigrationDialog';
 import { localDataApi } from '@/lib/localStorage';
 import { Bookmark, CreateBookmarkDto, UpdateBookmarkDto } from '@/types';
-
-type ThemeMode = 'light' | 'dark' | 'system';
 
 export default function DashboardPage() {
   const { isSignedIn } = useAuth();
