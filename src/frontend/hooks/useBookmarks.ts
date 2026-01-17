@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useAuth } from '@clerk/nextjs';
+import Fuse from 'fuse.js';
 import {
   Bookmark,
   Folder,
@@ -36,6 +37,21 @@ export function useBookmarks() {
   const [selectedTagId, setSelectedTagId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSyncPrompt, setShowSyncPrompt] = useState(false);
+
+  // Configure Fuse.js for fuzzy search with weighted fields
+  const fuse = useMemo(() => {
+    return new Fuse(bookmarks, {
+      keys: [
+        { name: 'title', weight: 0.5 },
+        { name: 'description', weight: 0.3 },
+        { name: 'url', weight: 0.15 },
+        { name: 'tags.name', weight: 0.05 },
+      ],
+      threshold: 0.4,
+      ignoreLocation: true,
+      includeScore: true,
+    });
+  }, [bookmarks]);
 
   // Load data
   const loadData = useCallback(async () => {
@@ -94,20 +110,18 @@ export function useBookmarks() {
         break;
       case 'search':
         if (searchQuery) {
-          const query = searchQuery.toLowerCase();
-          filtered = bookmarks.filter(
-            (b) =>
-              b.title.toLowerCase().includes(query) ||
-              b.url.toLowerCase().includes(query) ||
-              b.description?.toLowerCase().includes(query) ||
-              b.tags.some((t) => t.name.toLowerCase().includes(query))
-          );
+          const results = fuse.search(searchQuery);
+          filtered = results.map((result) => result.item);
         }
         break;
     }
 
+    // For search, preserve the relevance order from Fuse.js
+    if (filterType === 'search' && searchQuery) {
+      return filtered;
+    }
     return filtered.sort((a, b) => a.sortOrder - b.sortOrder);
-  }, [bookmarks, filterType, selectedFolderId, selectedTagId, searchQuery]);
+  }, [bookmarks, filterType, selectedFolderId, selectedTagId, searchQuery, fuse]);
 
   // Bookmark operations
   const createBookmark = useCallback(

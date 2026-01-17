@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import Fuse from 'fuse.js';
 import {
   Box,
   Paper,
@@ -90,17 +91,27 @@ export default function MobileBottomNav({
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [localSearchQuery, setLocalSearchQuery] = useState('');
 
-  // Filter bookmarks based on local search query
+  // Configure Fuse.js for fuzzy search with weighted fields
+  const fuse = useMemo(() => {
+    return new Fuse(bookmarks, {
+      keys: [
+        { name: 'title', weight: 0.5 },
+        { name: 'description', weight: 0.3 },
+        { name: 'url', weight: 0.15 },
+        { name: 'tags.name', weight: 0.05 },
+      ],
+      threshold: 0.4,
+      ignoreLocation: true,
+      includeScore: true,
+    });
+  }, [bookmarks]);
+
+  // Filter bookmarks based on local search query using Fuse.js
   const searchResults = useMemo(() => {
     if (!localSearchQuery.trim()) return [];
-    const query = localSearchQuery.toLowerCase();
-    return bookmarks.filter(
-      (b) =>
-        b.title.toLowerCase().includes(query) ||
-        b.url.toLowerCase().includes(query) ||
-        b.description?.toLowerCase().includes(query)
-    ).slice(0, 20); // Limit to 20 results
-  }, [bookmarks, localSearchQuery]);
+    const results = fuse.search(localSearchQuery);
+    return results.map((result) => result.item).slice(0, 20); // Limit to 20 results
+  }, [fuse, localSearchQuery]);
 
   const handleSearchClose = () => {
     setSearchOpen(false);
