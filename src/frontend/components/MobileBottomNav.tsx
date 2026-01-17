@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Box,
   Paper,
@@ -12,6 +12,11 @@ import {
   TextField,
   InputAdornment,
   Skeleton,
+  List,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Avatar,
 } from '@mui/material';
 import {
   Search,
@@ -19,15 +24,18 @@ import {
   Bookmarks,
   Close,
   AccountCircle,
+  OpenInNew,
+  Star,
 } from '@mui/icons-material';
 import { useAuth, SignInButton, SignUpButton, ClerkLoaded, ClerkLoading } from '@clerk/nextjs';
 import ClerkButton from './ClerkButton';
 import MobileDrawer from './MobileDrawer';
-import { Folder, Tag, FilterType } from '@/types';
+import { Bookmark, Folder, Tag, FilterType } from '@/types';
 
 interface MobileBottomNavProps {
   folders: Folder[];
   tags: Tag[];
+  bookmarks: Bookmark[];
   filterType: FilterType;
   selectedFolderId: string | null;
   selectedTagId: string | null;
@@ -40,6 +48,7 @@ interface MobileBottomNavProps {
   onCreateFolder: (name: string) => void;
   onDeleteFolder: (id: string) => void;
   onDeleteTag: (id: string) => void;
+  onBookmarkClick: (bookmark: Bookmark) => void;
   // Settings
   viewMode: 'grid' | 'list';
   onViewModeChange: (mode: 'grid' | 'list') => void;
@@ -53,6 +62,7 @@ interface MobileBottomNavProps {
 export default function MobileBottomNav({
   folders,
   tags,
+  bookmarks,
   filterType,
   selectedFolderId,
   selectedTagId,
@@ -65,6 +75,7 @@ export default function MobileBottomNav({
   onCreateFolder,
   onDeleteFolder,
   onDeleteTag,
+  onBookmarkClick,
   viewMode,
   onViewModeChange,
   themeMode,
@@ -77,9 +88,28 @@ export default function MobileBottomNav({
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [localSearchQuery, setLocalSearchQuery] = useState('');
+
+  // Filter bookmarks based on local search query
+  const searchResults = useMemo(() => {
+    if (!localSearchQuery.trim()) return [];
+    const query = localSearchQuery.toLowerCase();
+    return bookmarks.filter(
+      (b) =>
+        b.title.toLowerCase().includes(query) ||
+        b.url.toLowerCase().includes(query) ||
+        b.description?.toLowerCase().includes(query)
+    ).slice(0, 20); // Limit to 20 results
+  }, [bookmarks, localSearchQuery]);
 
   const handleSearchClose = () => {
     setSearchOpen(false);
+    setLocalSearchQuery('');
+  };
+
+  const handleResultClick = (bookmark: Bookmark) => {
+    onBookmarkClick(bookmark);
+    handleSearchClose();
   };
 
   return (
@@ -267,15 +297,8 @@ export default function MobileBottomNav({
             autoFocus
             fullWidth
             placeholder="Search bookmarks..."
-            value={searchQuery}
-            onChange={(e) => {
-              onSearchChange(e.target.value);
-              if (e.target.value) {
-                onFilterChange('search');
-              } else {
-                onFilterChange('all');
-              }
-            }}
+            value={localSearchQuery}
+            onChange={(e) => setLocalSearchQuery(e.target.value)}
             size="small"
             InputProps={{
               startAdornment: (
@@ -287,15 +310,74 @@ export default function MobileBottomNav({
             sx={{ mr: 1 }}
           />
         </DialogTitle>
-        <DialogContent sx={{ p: 2, pt: 0 }}>
-          {searchQuery ? (
-            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
-              Showing results for "{searchQuery}"
-            </Typography>
-          ) : (
+        <DialogContent sx={{ p: 0 }}>
+          {!localSearchQuery.trim() ? (
             <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
               Start typing to search your bookmarks
             </Typography>
+          ) : searchResults.length === 0 ? (
+            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+              No results found for "{localSearchQuery}"
+            </Typography>
+          ) : (
+            <List disablePadding>
+              {searchResults.map((bookmark) => (
+                <ListItemButton
+                  key={bookmark.id}
+                  onClick={() => handleResultClick(bookmark)}
+                  sx={{ py: 1.5, px: 2 }}
+                >
+                  <ListItemIcon sx={{ minWidth: 40 }}>
+                    {bookmark.favicon ? (
+                      <Avatar
+                        src={bookmark.favicon}
+                        sx={{ width: 24, height: 24 }}
+                        variant="rounded"
+                      >
+                        <Bookmarks fontSize="small" />
+                      </Avatar>
+                    ) : (
+                      <Bookmarks color="action" fontSize="small" />
+                    )}
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            fontWeight: 500,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {bookmark.title}
+                        </Typography>
+                        {bookmark.isFavorite && (
+                          <Star sx={{ fontSize: 14, color: 'warning.main' }} />
+                        )}
+                      </Box>
+                    }
+                    secondary={
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          display: 'block',
+                        }}
+                      >
+                        {bookmark.url}
+                      </Typography>
+                    }
+                  />
+                  <OpenInNew fontSize="small" color="action" sx={{ ml: 1 }} />
+                </ListItemButton>
+              ))}
+            </List>
           )}
         </DialogContent>
       </Dialog>

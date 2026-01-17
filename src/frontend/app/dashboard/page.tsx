@@ -463,6 +463,7 @@ export default function DashboardPage() {
         <MobileBottomNav
           folders={folders}
           tags={tags}
+          bookmarks={bookmarks}
           filterType={filterType}
           selectedFolderId={selectedFolderId}
           selectedTagId={selectedTagId}
@@ -478,6 +479,7 @@ export default function DashboardPage() {
           onCreateFolder={handleCreateFolder}
           onDeleteFolder={handleDeleteFolder}
           onDeleteTag={handleDeleteTag}
+          onBookmarkClick={handleBookmarkClick}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
           themeMode={mode}
