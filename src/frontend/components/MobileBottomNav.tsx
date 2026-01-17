@@ -46,7 +46,7 @@ interface MobileBottomNavProps {
   onTagSelect: (id: string | null) => void;
   onSearchChange: (query: string) => void;
   onAddBookmark: () => void;
-  onCreateFolder: (name: string) => void;
+  onCreateFolder: (name: string) => Promise<unknown>;
   onDeleteFolder: (id: string) => void;
   onDeleteTag: (id: string) => void;
   onBookmarkClick: (bookmark: Bookmark) => void;

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import Fuse from 'fuse.js';
 import {
   Dialog,
   DialogTitle,
@@ -11,17 +12,20 @@ import {
   Box,
   Autocomplete,
   Chip,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   CircularProgress,
   Alert,
   IconButton,
   InputAdornment,
+  createFilterOptions,
 } from '@mui/material';
 import { Add } from '@mui/icons-material';
 import { Bookmark, Folder, Tag, CreateBookmarkDto, UpdateBookmarkDto } from '@/types';
+
+interface FolderOption {
+  id: string;
+  name: string;
+  inputValue?: string;
+}
 
 interface AddBookmarkDialogProps {
   open: boolean;
@@ -31,7 +35,7 @@ interface AddBookmarkDialogProps {
   tags: Tag[];
   editingBookmark?: Bookmark | null;
   onFetchMetadata?: (url: string) => Promise<{ title?: string; description?: string; favicon?: string }>;
-  onCreateFolder?: (name: string) => Promise<void>;
+  onCreateFolder?: (name: string) => Promise<Folder>;
 }
 
 const isValidUrl = (urlString: string): boolean => {
@@ -64,9 +68,24 @@ export default function AddBookmarkDialog({
   const [loading, setLoading] = useState(false);
   const [fetchingMetadata, setFetchingMetadata] = useState(false);
   const [error, setError] = useState('');
-  const [showNewFolderInput, setShowNewFolderInput] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [creatingFolder, setCreatingFolder] = useState(false);
+  const [folderError, setFolderError] = useState('');
+  const tagsInputRef = useRef<HTMLInputElement>(null);
+
+  // Configure Fuse.js for fuzzy folder search
+  const folderFuse = useMemo(() => {
+    return new Fuse(folders, {
+      keys: ['name'],
+      threshold: 0.4,
+      ignoreLocation: true,
+    });
+  }, [folders]);
+
+  // Get selected folder object
+  const selectedFolder = useMemo(() => {
+    return folders.find((f) => f.id === selectedFolderId) || null;
+  }, [folders, selectedFolderId]);
 
   useEffect(() => {
     if (editingBookmark) {
@@ -91,8 +110,8 @@ export default function AddBookmarkDialog({
     setSelectedTags([]);
     setNewTag('');
     setError('');
-    setShowNewFolderInput(false);
     setNewFolderName('');
+    setFolderError('');
   };
 
   const validateUrl = (value: string) => {
@@ -183,19 +202,55 @@ export default function AddBookmarkDialog({
     }
   };
 
-  const handleCreateFolder = async () => {
-    if (!newFolderName.trim() || !onCreateFolder) return;
+  const handleCreateFolder = async (name: string): Promise<Folder | null> => {
+    if (!name.trim() || !onCreateFolder) return null;
 
     setCreatingFolder(true);
+    setFolderError('');
     try {
-      await onCreateFolder(newFolderName.trim());
+      const newFolder = await onCreateFolder(name.trim());
+      setSelectedFolderId(newFolder.id);
       setNewFolderName('');
-      setShowNewFolderInput(false);
+      // Focus the tags input after successful folder creation
+      setTimeout(() => {
+        tagsInputRef.current?.focus();
+      }, 100);
+      return newFolder;
     } catch (err) {
-      // Error handled by parent
+      setFolderError('Failed to create folder. Please try again.');
+      return null;
     } finally {
       setCreatingFolder(false);
     }
+  };
+
+  // Custom filter for folder autocomplete using Fuse.js
+  const filterFolderOptions = (
+    options: FolderOption[],
+    state: { inputValue: string }
+  ): FolderOption[] => {
+    const { inputValue } = state;
+
+    if (!inputValue.trim()) {
+      return options;
+    }
+
+    const results = folderFuse.search(inputValue);
+    const filtered = results.map((result) => result.item as FolderOption);
+
+    // Add "Create new folder" option if no exact match exists
+    const exactMatch = options.some(
+      (opt) => opt.name.toLowerCase() === inputValue.toLowerCase()
+    );
+    if (!exactMatch && onCreateFolder) {
+      filtered.push({
+        id: '',
+        name: `Create "${inputValue}"`,
+        inputValue: inputValue,
+      });
+    }
+
+    return filtered;
   };
 
   return (
@@ -242,82 +297,77 @@ export default function AddBookmarkDialog({
             rows={2}
           />
 
-          {showNewFolderInput ? (
-            <TextField
-              label="New Folder Name"
-              value={newFolderName}
-              onChange={(e) => setNewFolderName(e.target.value)}
-              fullWidth
-              autoFocus
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <Button
-                      size="small"
-                      onClick={handleCreateFolder}
-                      disabled={!newFolderName.trim() || creatingFolder}
-                    >
-                      {creatingFolder ? <CircularProgress size={20} /> : 'Create'}
-                    </Button>
-                    <Button
-                      size="small"
-                      color="inherit"
-                      onClick={() => {
-                        setShowNewFolderInput(false);
-                        setNewFolderName('');
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                  </InputAdornment>
-                ),
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleCreateFolder();
+          <Autocomplete
+            options={folders as FolderOption[]}
+            value={selectedFolder}
+            onChange={async (_, newValue) => {
+              setFolderError(''); // Clear any previous error
+              if (typeof newValue === 'string') {
+                // User typed and pressed enter
+                const existing = folders.find(
+                  (f) => f.name.toLowerCase() === newValue.toLowerCase()
+                );
+                if (existing) {
+                  setSelectedFolderId(existing.id);
+                } else if (onCreateFolder) {
+                  await handleCreateFolder(newValue);
                 }
-                if (e.key === 'Escape') {
-                  setShowNewFolderInput(false);
-                  setNewFolderName('');
-                }
-              }}
-            />
-          ) : (
-            <FormControl fullWidth>
-              <InputLabel>Folder</InputLabel>
-              <Select
-                value={selectedFolderId}
+              } else if (newValue && newValue.inputValue) {
+                // User selected "Create new folder" option
+                await handleCreateFolder(newValue.inputValue);
+              } else if (newValue) {
+                // User selected existing folder
+                setSelectedFolderId(newValue.id);
+              } else {
+                // User cleared selection
+                setSelectedFolderId('');
+              }
+            }}
+            filterOptions={filterFolderOptions}
+            getOptionLabel={(option) => {
+              if (typeof option === 'string') return option;
+              return option.inputValue ? option.name : option.name;
+            }}
+            isOptionEqualToValue={(option, value) => option.id === value.id}
+            freeSolo
+            selectOnFocus
+            clearOnBlur
+            handleHomeEndKeys
+            loading={creatingFolder}
+            renderOption={(props, option) => {
+              const { key, ...restProps } = props;
+              return (
+                <li key={option.id || `create-${option.inputValue}`} {...restProps}>
+                  {option.inputValue ? (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Add fontSize="small" color="primary" />
+                      {option.name}
+                    </Box>
+                  ) : (
+                    option.name
+                  )}
+                </li>
+              );
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
                 label="Folder"
-                onChange={(e) => setSelectedFolderId(e.target.value)}
-                endAdornment={
-                  onCreateFolder && (
-                    <InputAdornment position="end" sx={{ mr: 2 }}>
-                      <IconButton
-                        size="small"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setShowNewFolderInput(true);
-                        }}
-                        title="Create new folder"
-                      >
-                        <Add fontSize="small" />
-                      </IconButton>
-                    </InputAdornment>
-                  )
-                }
-              >
-                <MenuItem value="">
-                  <em>No folder</em>
-                </MenuItem>
-                {folders.map((folder) => (
-                  <MenuItem key={folder.id} value={folder.id}>
-                    {folder.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          )}
+                placeholder="Search or create folder..."
+                error={!!folderError}
+                helperText={folderError}
+                InputProps={{
+                  ...params.InputProps,
+                  endAdornment: (
+                    <>
+                      {creatingFolder ? <CircularProgress size={20} /> : null}
+                      {params.InputProps.endAdornment}
+                    </>
+                  ),
+                }}
+              />
+            )}
+          />
 
           <Autocomplete
             multiple
@@ -341,6 +391,7 @@ export default function AddBookmarkDialog({
             renderInput={(params) => (
               <TextField
                 {...params}
+                inputRef={tagsInputRef}
                 label="Tags"
                 placeholder="Add tags..."
                 onKeyDown={(e) => {

@@ -159,10 +159,12 @@ export default function DashboardPage() {
 
   const handleCreateFolder = async (name: string) => {
     try {
-      await createFolder({ name });
+      const folder = await createFolder({ name });
       setSnackbar({ open: true, message: 'Folder created!', severity: 'success' });
+      return folder;
     } catch (err) {
       setSnackbar({ open: true, message: 'Failed to create folder', severity: 'error' });
+      throw err;
     }
   };
 

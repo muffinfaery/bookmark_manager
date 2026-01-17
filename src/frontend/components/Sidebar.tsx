@@ -44,7 +44,7 @@ interface SidebarProps {
   onFilterChange: (type: FilterType) => void;
   onFolderSelect: (folderId: string | null) => void;
   onTagSelect: (tagId: string | null) => void;
-  onCreateFolder: (name: string) => Promise<void>;
+  onCreateFolder: (name: string) => Promise<unknown>;
   onDeleteFolder: (id: string) => Promise<void>;
   onDeleteTag: (id: string) => Promise<void>;
   onOpenSettings: () => void;

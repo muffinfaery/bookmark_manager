@@ -52,7 +52,7 @@ interface MobileDrawerProps {
   onFilterChange: (type: FilterType) => void;
   onFolderSelect: (id: string | null) => void;
   onTagSelect: (id: string | null) => void;
-  onCreateFolder: (name: string) => void;
+  onCreateFolder: (name: string) => Promise<unknown>;
   onDeleteFolder: (id: string) => void;
   onDeleteTag: (id: string) => void;
   // Settings
