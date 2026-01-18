@@ -86,11 +86,14 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-// Apply migrations on startup
-using (var scope = app.Services.CreateScope())
+// Apply migrations on startup (skip in testing environment)
+if (!app.Environment.IsEnvironment("Testing"))
 {
-    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    await db.Database.MigrateAsync();
+    using (var scope = app.Services.CreateScope())
+    {
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        await db.Database.MigrateAsync();
+    }
 }
 
 app.Run();

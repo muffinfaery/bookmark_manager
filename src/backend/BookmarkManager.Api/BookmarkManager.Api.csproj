@@ -7,6 +7,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="BookmarkManager.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\BookmarkManager.Application\BookmarkManager.Application.csproj" />
     <ProjectReference Include="..\BookmarkManager.Infrastructure\BookmarkManager.Infrastructure.csproj" />
   </ItemGroup>
