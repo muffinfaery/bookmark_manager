@@ -1,6 +1,8 @@
 using BookmarkManager.Application.DTOs;
+using BookmarkManager.Application.Mapping;
 using BookmarkManager.Application.Services.Interfaces;
 using BookmarkManager.Domain.Entities;
+using BookmarkManager.Domain.Exceptions;
 using BookmarkManager.Domain.Interfaces;
 
 namespace BookmarkManager.Application.Services.Implementations;
@@ -17,7 +19,7 @@ public class FolderService : IFolderService
     public async Task<IEnumerable<FolderDto>> GetAllAsync(string userId, CancellationToken cancellationToken = default)
     {
         var folders = await _unitOfWork.Folders.GetByUserIdAsync(userId, cancellationToken);
-        return folders.Select(MapToDto);
+        return DtoMapper.ToDtos(folders);
     }
 
     public async Task<FolderDto?> GetByIdAsync(string userId, Guid id, CancellationToken cancellationToken = default)
@@ -25,7 +27,7 @@ public class FolderService : IFolderService
         var folder = await _unitOfWork.Folders.GetByIdAsync(id, cancellationToken);
         if (folder == null || folder.UserId != userId)
             return null;
-        return MapToDto(folder);
+        return DtoMapper.ToDto(folder);
     }
 
     public async Task<FolderWithBookmarksDto?> GetWithBookmarksAsync(string userId, Guid id, CancellationToken cancellationToken = default)
@@ -34,38 +36,19 @@ public class FolderService : IFolderService
         if (folder == null || folder.UserId != userId)
             return null;
 
-        return new FolderWithBookmarksDto(
-            folder.Id,
-            folder.Name,
-            folder.Color,
-            folder.Icon,
-            folder.SortOrder,
-            folder.ParentFolderId,
-            folder.Bookmarks.Select(b => new BookmarkDto(
-                b.Id, b.Url, b.Title, b.Description, b.Favicon, b.IsFavorite,
-                b.ClickCount, b.SortOrder, b.FolderId, folder.Name,
-                b.BookmarkTags.Select(bt => new TagDto(
-                    bt.Tag.Id, bt.Tag.Name, bt.Tag.Color,
-                    bt.Tag.BookmarkTags.Count, bt.Tag.CreatedAt
-                )).ToList(),
-                b.CreatedAt, b.UpdatedAt
-            )).ToList(),
-            folder.SubFolders.Select(MapToDto).ToList(),
-            folder.CreatedAt,
-            folder.UpdatedAt
-        );
+        return DtoMapper.ToFolderWithBookmarksDto(folder);
     }
 
     public async Task<IEnumerable<FolderDto>> GetRootFoldersAsync(string userId, CancellationToken cancellationToken = default)
     {
         var folders = await _unitOfWork.Folders.GetRootFoldersAsync(userId, cancellationToken);
-        return folders.Select(MapToDto);
+        return DtoMapper.ToDtos(folders);
     }
 
     public async Task<IEnumerable<FolderDto>> GetSubFoldersAsync(string userId, Guid parentFolderId, CancellationToken cancellationToken = default)
     {
         var folders = await _unitOfWork.Folders.GetSubFoldersAsync(userId, parentFolderId, cancellationToken);
-        return folders.Select(MapToDto);
+        return DtoMapper.ToDtos(folders);
     }
 
     public async Task<FolderDto> CreateAsync(string userId, CreateFolderDto dto, CancellationToken cancellationToken = default)
@@ -82,14 +65,14 @@ public class FolderService : IFolderService
 
         await _unitOfWork.Folders.AddAsync(folder, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
-        return MapToDto(folder);
+        return DtoMapper.ToDto(folder);
     }
 
     public async Task<FolderDto> UpdateAsync(string userId, Guid id, UpdateFolderDto dto, CancellationToken cancellationToken = default)
     {
         var folder = await _unitOfWork.Folders.GetByIdAsync(id, cancellationToken);
         if (folder == null || folder.UserId != userId)
-            throw new InvalidOperationException("Folder not found");
+            throw new EntityNotFoundException("Folder", id);
 
         if (dto.Name != null) folder.Name = dto.Name;
         if (dto.Color != null) folder.Color = dto.Color;
@@ -99,14 +82,14 @@ public class FolderService : IFolderService
         folder.UpdatedAt = DateTime.UtcNow;
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
-        return MapToDto(folder);
+        return DtoMapper.ToDto(folder);
     }
 
     public async Task DeleteAsync(string userId, Guid id, CancellationToken cancellationToken = default)
     {
         var folder = await _unitOfWork.Folders.GetByIdAsync(id, cancellationToken);
         if (folder == null || folder.UserId != userId)
-            throw new InvalidOperationException("Folder not found");
+            throw new EntityNotFoundException("Folder", id);
 
         await _unitOfWork.Folders.DeleteAsync(folder, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -117,20 +100,5 @@ public class FolderService : IFolderService
         var updates = dto.Items.Select(i => (i.Id, i.SortOrder));
         await _unitOfWork.Folders.UpdateSortOrderAsync(updates, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
-    }
-
-    private static FolderDto MapToDto(Folder folder)
-    {
-        return new FolderDto(
-            folder.Id,
-            folder.Name,
-            folder.Color,
-            folder.Icon,
-            folder.SortOrder,
-            folder.ParentFolderId,
-            folder.Bookmarks.Count,
-            folder.CreatedAt,
-            folder.UpdatedAt
-        );
     }
 }

@@ -1,6 +1,7 @@
 using BookmarkManager.Application.DTOs;
 using BookmarkManager.Application.Services.Implementations;
 using BookmarkManager.Domain.Entities;
+using BookmarkManager.Domain.Exceptions;
 using BookmarkManager.Domain.Interfaces;
 using BookmarkManager.Tests.Helpers;
 
@@ -156,7 +157,7 @@ public class TagServiceTests
             .ReturnsAsync(existingTag);
 
         // Act & Assert
-        await Assert.ThrowsAsync<InvalidOperationException>(
+        await Assert.ThrowsAsync<DuplicateEntityException>(
             () => _service.CreateAsync(userId, dto));
 
         _mockTagRepository.Verify(r => r.AddAsync(It.IsAny<Tag>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -202,7 +203,7 @@ public class TagServiceTests
             .ReturnsAsync((Tag?)null);
 
         // Act & Assert
-        await Assert.ThrowsAsync<InvalidOperationException>(
+        await Assert.ThrowsAsync<EntityNotFoundException>(
             () => _service.UpdateAsync(userId, id, dto));
     }
 
@@ -217,7 +218,7 @@ public class TagServiceTests
             .ReturnsAsync(tag);
 
         // Act & Assert
-        await Assert.ThrowsAsync<InvalidOperationException>(
+        await Assert.ThrowsAsync<EntityNotFoundException>(
             () => _service.UpdateAsync(TestDataBuilder.DefaultUserId, tag.Id, dto));
     }
 
@@ -236,7 +237,7 @@ public class TagServiceTests
             .ReturnsAsync(existingTag);
 
         // Act & Assert
-        await Assert.ThrowsAsync<InvalidOperationException>(
+        await Assert.ThrowsAsync<DuplicateEntityException>(
             () => _service.UpdateAsync(userId, tag.Id, dto));
     }
 
@@ -319,7 +320,7 @@ public class TagServiceTests
             .ReturnsAsync((Tag?)null);
 
         // Act & Assert
-        await Assert.ThrowsAsync<InvalidOperationException>(
+        await Assert.ThrowsAsync<EntityNotFoundException>(
             () => _service.DeleteAsync(userId, id));
     }
 
@@ -333,7 +334,7 @@ public class TagServiceTests
             .ReturnsAsync(tag);
 
         // Act & Assert
-        await Assert.ThrowsAsync<InvalidOperationException>(
+        await Assert.ThrowsAsync<EntityNotFoundException>(
             () => _service.DeleteAsync(TestDataBuilder.DefaultUserId, tag.Id));
     }
 

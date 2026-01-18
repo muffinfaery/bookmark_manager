@@ -1,6 +1,7 @@
 using BookmarkManager.Application.DTOs;
 using BookmarkManager.Application.Services.Implementations;
 using BookmarkManager.Domain.Entities;
+using BookmarkManager.Domain.Exceptions;
 using BookmarkManager.Domain.Interfaces;
 using BookmarkManager.Tests.Helpers;
 
@@ -394,7 +395,7 @@ public class BookmarkServiceTests
             .ReturnsAsync((Bookmark?)null);
 
         // Act & Assert
-        await Assert.ThrowsAsync<InvalidOperationException>(
+        await Assert.ThrowsAsync<EntityNotFoundException>(
             () => _service.UpdateAsync(userId, id, dto));
     }
 
@@ -409,7 +410,7 @@ public class BookmarkServiceTests
             .ReturnsAsync(bookmark);
 
         // Act & Assert
-        await Assert.ThrowsAsync<InvalidOperationException>(
+        await Assert.ThrowsAsync<EntityNotFoundException>(
             () => _service.UpdateAsync(TestDataBuilder.DefaultUserId, bookmark.Id, dto));
     }
 
@@ -469,7 +470,7 @@ public class BookmarkServiceTests
             .ReturnsAsync((Bookmark?)null);
 
         // Act & Assert
-        await Assert.ThrowsAsync<InvalidOperationException>(
+        await Assert.ThrowsAsync<EntityNotFoundException>(
             () => _service.DeleteAsync(userId, id));
     }
 
@@ -483,7 +484,7 @@ public class BookmarkServiceTests
             .ReturnsAsync(bookmark);
 
         // Act & Assert
-        await Assert.ThrowsAsync<InvalidOperationException>(
+        await Assert.ThrowsAsync<EntityNotFoundException>(
             () => _service.DeleteAsync(TestDataBuilder.DefaultUserId, bookmark.Id));
     }
 

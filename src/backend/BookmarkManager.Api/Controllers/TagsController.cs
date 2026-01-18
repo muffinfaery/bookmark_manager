@@ -32,44 +32,24 @@ public class TagsController : BaseController
     [HttpPost]
     public async Task<ActionResult<TagDto>> Create([FromBody] CreateTagDto dto, CancellationToken cancellationToken)
     {
-        try
-        {
-            var tag = await _tagService.CreateAsync(UserId, dto, cancellationToken);
-            return CreatedAtAction(nameof(GetById), new { id = tag.Id }, tag);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
+        // DuplicateEntityException is handled by global exception middleware (returns 409 Conflict)
+        var tag = await _tagService.CreateAsync(UserId, dto, cancellationToken);
+        return CreatedAtAction(nameof(GetById), new { id = tag.Id }, tag);
     }
 
     [HttpPut("{id:guid}")]
     public async Task<ActionResult<TagDto>> Update(Guid id, [FromBody] UpdateTagDto dto, CancellationToken cancellationToken)
     {
-        try
-        {
-            var tag = await _tagService.UpdateAsync(UserId, id, dto, cancellationToken);
-            return Ok(tag);
-        }
-        catch (InvalidOperationException ex)
-        {
-            if (ex.Message.Contains("not found"))
-                return NotFound();
-            return BadRequest(new { message = ex.Message });
-        }
+        // EntityNotFoundException and DuplicateEntityException handled by global exception middleware
+        var tag = await _tagService.UpdateAsync(UserId, id, dto, cancellationToken);
+        return Ok(tag);
     }
 
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
-        try
-        {
-            await _tagService.DeleteAsync(UserId, id, cancellationToken);
-            return NoContent();
-        }
-        catch (InvalidOperationException)
-        {
-            return NotFound();
-        }
+        // EntityNotFoundException is handled by global exception middleware
+        await _tagService.DeleteAsync(UserId, id, cancellationToken);
+        return NoContent();
     }
 }

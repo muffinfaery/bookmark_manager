@@ -47,7 +47,7 @@ public class BookmarksController : BaseController
     public async Task<ActionResult<IEnumerable<BookmarkDto>>> Search([FromQuery] string q, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(q))
-            return BadRequest("Search query is required");
+            return BadRequest(new { message = "Search query is required" });
         var bookmarks = await _bookmarkService.SearchAsync(UserId, q, cancellationToken);
         return Ok(bookmarks);
     }
@@ -69,29 +69,17 @@ public class BookmarksController : BaseController
     [HttpPut("{id:guid}")]
     public async Task<ActionResult<BookmarkDto>> Update(Guid id, [FromBody] UpdateBookmarkDto dto, CancellationToken cancellationToken)
     {
-        try
-        {
-            var bookmark = await _bookmarkService.UpdateAsync(UserId, id, dto, cancellationToken);
-            return Ok(bookmark);
-        }
-        catch (InvalidOperationException)
-        {
-            return NotFound();
-        }
+        // EntityNotFoundException is handled by global exception middleware
+        var bookmark = await _bookmarkService.UpdateAsync(UserId, id, dto, cancellationToken);
+        return Ok(bookmark);
     }
 
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
-        try
-        {
-            await _bookmarkService.DeleteAsync(UserId, id, cancellationToken);
-            return NoContent();
-        }
-        catch (InvalidOperationException)
-        {
-            return NotFound();
-        }
+        // EntityNotFoundException is handled by global exception middleware
+        await _bookmarkService.DeleteAsync(UserId, id, cancellationToken);
+        return NoContent();
     }
 
     [HttpGet("check-duplicate")]

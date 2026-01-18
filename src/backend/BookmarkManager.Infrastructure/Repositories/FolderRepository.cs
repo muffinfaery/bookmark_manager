@@ -1,6 +1,7 @@
 using BookmarkManager.Domain.Entities;
 using BookmarkManager.Domain.Interfaces;
 using BookmarkManager.Infrastructure.Data;
+using BookmarkManager.Infrastructure.Extensions;
 using Microsoft.EntityFrameworkCore;
 
 namespace BookmarkManager.Infrastructure.Repositories;
@@ -14,8 +15,7 @@ public class FolderRepository : Repository<Folder>, IFolderRepository
     public override async Task<Folder?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         return await _dbSet
-            .Include(f => f.Bookmarks)
-            .Include(f => f.SubFolders)
+            .WithBookmarksAndSubFolders()
             .FirstOrDefaultAsync(f => f.Id == id, cancellationToken);
     }
 
@@ -24,40 +24,32 @@ public class FolderRepository : Repository<Folder>, IFolderRepository
         return await _dbSet
             .Include(f => f.Bookmarks)
             .Where(f => f.UserId == userId)
-            .OrderBy(f => f.SortOrder)
-            .ThenBy(f => f.Name)
+            .OrderBySortOrder()
             .ToListAsync(cancellationToken);
     }
 
     public async Task<IEnumerable<Folder>> GetRootFoldersAsync(string userId, CancellationToken cancellationToken = default)
     {
         return await _dbSet
-            .Include(f => f.Bookmarks)
-            .Include(f => f.SubFolders)
+            .WithBookmarksAndSubFolders()
             .Where(f => f.UserId == userId && f.ParentFolderId == null)
-            .OrderBy(f => f.SortOrder)
-            .ThenBy(f => f.Name)
+            .OrderBySortOrder()
             .ToListAsync(cancellationToken);
     }
 
     public async Task<IEnumerable<Folder>> GetSubFoldersAsync(string userId, Guid parentFolderId, CancellationToken cancellationToken = default)
     {
         return await _dbSet
-            .Include(f => f.Bookmarks)
-            .Include(f => f.SubFolders)
+            .WithBookmarksAndSubFolders()
             .Where(f => f.UserId == userId && f.ParentFolderId == parentFolderId)
-            .OrderBy(f => f.SortOrder)
-            .ThenBy(f => f.Name)
+            .OrderBySortOrder()
             .ToListAsync(cancellationToken);
     }
 
     public async Task<Folder?> GetWithBookmarksAsync(Guid id, CancellationToken cancellationToken = default)
     {
         return await _dbSet
-            .Include(f => f.Bookmarks)
-                .ThenInclude(b => b.BookmarkTags)
-                    .ThenInclude(bt => bt.Tag)
-            .Include(f => f.SubFolders)
+            .WithBookmarksAndTags()
             .FirstOrDefaultAsync(f => f.Id == id, cancellationToken);
     }
 
@@ -65,9 +57,9 @@ public class FolderRepository : Repository<Folder>, IFolderRepository
     {
         foreach (var (id, sortOrder) in updates)
         {
-            await _context.Database.ExecuteSqlRawAsync(
-                "UPDATE \"Folders\" SET \"SortOrder\" = {0} WHERE \"Id\" = {1}",
-                sortOrder, id);
+            await _dbSet
+                .Where(f => f.Id == id)
+                .ExecuteUpdateAsync(s => s.SetProperty(f => f.SortOrder, sortOrder), cancellationToken);
         }
     }
 }

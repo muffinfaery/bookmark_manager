@@ -1,6 +1,8 @@
 using BookmarkManager.Application.DTOs;
+using BookmarkManager.Application.Mapping;
 using BookmarkManager.Application.Services.Interfaces;
 using BookmarkManager.Domain.Entities;
+using BookmarkManager.Domain.Exceptions;
 using BookmarkManager.Domain.Interfaces;
 
 namespace BookmarkManager.Application.Services.Implementations;
@@ -17,7 +19,7 @@ public class BookmarkService : IBookmarkService
     public async Task<IEnumerable<BookmarkDto>> GetAllAsync(string userId, CancellationToken cancellationToken = default)
     {
         var bookmarks = await _unitOfWork.Bookmarks.GetByUserIdAsync(userId, cancellationToken);
-        return bookmarks.Select(MapToDto);
+        return DtoMapper.ToDtos(bookmarks);
     }
 
     public async Task<BookmarkDto?> GetByIdAsync(string userId, Guid id, CancellationToken cancellationToken = default)
@@ -25,31 +27,31 @@ public class BookmarkService : IBookmarkService
         var bookmark = await _unitOfWork.Bookmarks.GetByIdAsync(id, cancellationToken);
         if (bookmark == null || bookmark.UserId != userId)
             return null;
-        return MapToDto(bookmark);
+        return DtoMapper.ToDto(bookmark);
     }
 
     public async Task<IEnumerable<BookmarkDto>> GetByFolderAsync(string userId, Guid? folderId, CancellationToken cancellationToken = default)
     {
         var bookmarks = await _unitOfWork.Bookmarks.GetByFolderIdAsync(userId, folderId, cancellationToken);
-        return bookmarks.Select(MapToDto);
+        return DtoMapper.ToDtos(bookmarks);
     }
 
     public async Task<IEnumerable<BookmarkDto>> GetFavoritesAsync(string userId, CancellationToken cancellationToken = default)
     {
         var bookmarks = await _unitOfWork.Bookmarks.GetFavoritesAsync(userId, cancellationToken);
-        return bookmarks.Select(MapToDto);
+        return DtoMapper.ToDtos(bookmarks);
     }
 
     public async Task<IEnumerable<BookmarkDto>> SearchAsync(string userId, string searchTerm, CancellationToken cancellationToken = default)
     {
         var bookmarks = await _unitOfWork.Bookmarks.SearchAsync(userId, searchTerm, cancellationToken);
-        return bookmarks.Select(MapToDto);
+        return DtoMapper.ToDtos(bookmarks);
     }
 
     public async Task<IEnumerable<BookmarkDto>> GetMostUsedAsync(string userId, int count = 10, CancellationToken cancellationToken = default)
     {
         var bookmarks = await _unitOfWork.Bookmarks.GetMostUsedAsync(userId, count, cancellationToken);
-        return bookmarks.Select(MapToDto);
+        return DtoMapper.ToDtos(bookmarks);
     }
 
     public async Task<BookmarkDto> CreateAsync(string userId, CreateBookmarkDto dto, CancellationToken cancellationToken = default)
@@ -68,31 +70,17 @@ public class BookmarkService : IBookmarkService
         };
 
         await _unitOfWork.Bookmarks.AddAsync(bookmark, cancellationToken);
-
-        // Handle tags
-        if (dto.Tags != null && dto.Tags.Any())
-        {
-            foreach (var tagName in dto.Tags)
-            {
-                var tag = await _unitOfWork.Tags.GetByNameAsync(userId, tagName, cancellationToken);
-                if (tag == null)
-                {
-                    tag = new Tag { UserId = userId, Name = tagName };
-                    await _unitOfWork.Tags.AddAsync(tag, cancellationToken);
-                }
-                bookmark.BookmarkTags.Add(new BookmarkTag { BookmarkId = bookmark.Id, TagId = tag.Id });
-            }
-        }
-
+        await AssignTagsAsync(userId, bookmark, dto.Tags, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
-        return MapToDto(bookmark);
+
+        return DtoMapper.ToDto(bookmark);
     }
 
     public async Task<BookmarkDto> UpdateAsync(string userId, Guid id, UpdateBookmarkDto dto, CancellationToken cancellationToken = default)
     {
         var bookmark = await _unitOfWork.Bookmarks.GetByIdAsync(id, cancellationToken);
         if (bookmark == null || bookmark.UserId != userId)
-            throw new InvalidOperationException("Bookmark not found");
+            throw new EntityNotFoundException("Bookmark", id);
 
         if (dto.Url != null) bookmark.Url = dto.Url;
         if (dto.Title != null) bookmark.Title = dto.Title;
@@ -103,31 +91,21 @@ public class BookmarkService : IBookmarkService
 
         bookmark.UpdatedAt = DateTime.UtcNow;
 
-        // Handle tags update
         if (dto.Tags != null)
         {
             bookmark.BookmarkTags.Clear();
-            foreach (var tagName in dto.Tags)
-            {
-                var tag = await _unitOfWork.Tags.GetByNameAsync(userId, tagName, cancellationToken);
-                if (tag == null)
-                {
-                    tag = new Tag { UserId = userId, Name = tagName };
-                    await _unitOfWork.Tags.AddAsync(tag, cancellationToken);
-                }
-                bookmark.BookmarkTags.Add(new BookmarkTag { BookmarkId = bookmark.Id, TagId = tag.Id });
-            }
+            await AssignTagsAsync(userId, bookmark, dto.Tags, cancellationToken);
         }
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
-        return MapToDto(bookmark);
+        return DtoMapper.ToDto(bookmark);
     }
 
     public async Task DeleteAsync(string userId, Guid id, CancellationToken cancellationToken = default)
     {
         var bookmark = await _unitOfWork.Bookmarks.GetByIdAsync(id, cancellationToken);
         if (bookmark == null || bookmark.UserId != userId)
-            throw new InvalidOperationException("Bookmark not found");
+            throw new EntityNotFoundException("Bookmark", id);
 
         await _unitOfWork.Bookmarks.DeleteAsync(bookmark, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -161,7 +139,6 @@ public class BookmarkService : IBookmarkService
         var results = new List<BookmarkDto>();
         foreach (var createDto in dto.Bookmarks)
         {
-            // Skip duplicates
             var isDuplicate = await CheckDuplicateAsync(userId, createDto.Url, cancellationToken);
             if (!isDuplicate)
             {
@@ -180,36 +157,29 @@ public class BookmarkService : IBookmarkService
 
         return new BookmarkExportDto(
             bookmarks.ToList(),
-            folders.Select(f => new FolderDto(
-                f.Id, f.Name, f.Color, f.Icon, f.SortOrder, f.ParentFolderId,
-                f.Bookmarks.Count, f.CreatedAt, f.UpdatedAt
-            )).ToList(),
-            tags.Select(t => new TagDto(
-                t.Id, t.Name, t.Color, t.BookmarkTags.Count, t.CreatedAt
-            )).ToList(),
+            DtoMapper.ToDtos(folders).ToList(),
+            DtoMapper.ToDtos(tags).ToList(),
             DateTime.UtcNow
         );
     }
 
-    private static BookmarkDto MapToDto(Bookmark bookmark)
+    /// <summary>
+    /// Assigns tags to a bookmark, creating new tags if they don't exist.
+    /// </summary>
+    private async Task AssignTagsAsync(string userId, Bookmark bookmark, List<string>? tagNames, CancellationToken cancellationToken)
     {
-        return new BookmarkDto(
-            bookmark.Id,
-            bookmark.Url,
-            bookmark.Title,
-            bookmark.Description,
-            bookmark.Favicon,
-            bookmark.IsFavorite,
-            bookmark.ClickCount,
-            bookmark.SortOrder,
-            bookmark.FolderId,
-            bookmark.Folder?.Name,
-            bookmark.BookmarkTags.Select(bt => new TagDto(
-                bt.Tag.Id, bt.Tag.Name, bt.Tag.Color,
-                bt.Tag.BookmarkTags.Count, bt.Tag.CreatedAt
-            )).ToList(),
-            bookmark.CreatedAt,
-            bookmark.UpdatedAt
-        );
+        if (tagNames == null || !tagNames.Any())
+            return;
+
+        foreach (var tagName in tagNames)
+        {
+            var tag = await _unitOfWork.Tags.GetByNameAsync(userId, tagName, cancellationToken);
+            if (tag == null)
+            {
+                tag = new Tag { UserId = userId, Name = tagName };
+                await _unitOfWork.Tags.AddAsync(tag, cancellationToken);
+            }
+            bookmark.BookmarkTags.Add(new BookmarkTag { BookmarkId = bookmark.Id, TagId = tag.Id });
+        }
     }
 }

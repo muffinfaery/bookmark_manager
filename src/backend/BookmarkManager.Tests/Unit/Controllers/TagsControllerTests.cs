@@ -1,6 +1,7 @@
 using BookmarkManager.Api.Controllers;
 using BookmarkManager.Application.DTOs;
 using BookmarkManager.Application.Services.Interfaces;
+using BookmarkManager.Domain.Exceptions;
 using BookmarkManager.Tests.Helpers;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -115,18 +116,16 @@ public class TagsControllerTests
     }
 
     [Fact]
-    public async Task Create_ReturnsBadRequest_WhenTagAlreadyExists()
+    public async Task Create_ThrowsDuplicateEntityException_WhenTagAlreadyExists()
     {
         // Arrange
         var dto = TestDataBuilder.CreateTagDto(name: "ExistingTag");
         _mockService.Setup(s => s.CreateAsync(TestUserId, dto, It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("Tag already exists"));
+            .ThrowsAsync(new DuplicateEntityException("Tag", "Name", dto.Name));
 
-        // Act
-        var result = await _controller.Create(dto, CancellationToken.None);
-
-        // Assert
-        result.Result.Should().BeOfType<BadRequestObjectResult>();
+        // Act & Assert - Exception propagates to middleware (returns 409 Conflict)
+        await Assert.ThrowsAsync<DuplicateEntityException>(
+            () => _controller.Create(dto, CancellationToken.None));
     }
 
     #endregion
@@ -152,35 +151,31 @@ public class TagsControllerTests
     }
 
     [Fact]
-    public async Task Update_ReturnsNotFound_WhenTagDoesNotExist()
+    public async Task Update_ThrowsEntityNotFoundException_WhenTagDoesNotExist()
     {
         // Arrange
         var id = Guid.NewGuid();
         var dto = new UpdateTagDto("Updated", null);
         _mockService.Setup(s => s.UpdateAsync(TestUserId, id, dto, It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("Tag not found"));
+            .ThrowsAsync(new EntityNotFoundException("Tag", id));
 
-        // Act
-        var result = await _controller.Update(id, dto, CancellationToken.None);
-
-        // Assert
-        result.Result.Should().BeOfType<NotFoundResult>();
+        // Act & Assert - Exception propagates to middleware in production
+        await Assert.ThrowsAsync<EntityNotFoundException>(
+            () => _controller.Update(id, dto, CancellationToken.None));
     }
 
     [Fact]
-    public async Task Update_ReturnsBadRequest_WhenNameAlreadyExists()
+    public async Task Update_ThrowsDuplicateEntityException_WhenNameAlreadyExists()
     {
         // Arrange
         var id = Guid.NewGuid();
         var dto = new UpdateTagDto("Duplicate", null);
         _mockService.Setup(s => s.UpdateAsync(TestUserId, id, dto, It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("Tag name already exists"));
+            .ThrowsAsync(new DuplicateEntityException("Tag", "Name", dto.Name));
 
-        // Act
-        var result = await _controller.Update(id, dto, CancellationToken.None);
-
-        // Assert
-        result.Result.Should().BeOfType<BadRequestObjectResult>();
+        // Act & Assert - Exception propagates to middleware (returns 409 Conflict)
+        await Assert.ThrowsAsync<DuplicateEntityException>(
+            () => _controller.Update(id, dto, CancellationToken.None));
     }
 
     #endregion
@@ -203,18 +198,16 @@ public class TagsControllerTests
     }
 
     [Fact]
-    public async Task Delete_ReturnsNotFound_WhenTagDoesNotExist()
+    public async Task Delete_ThrowsEntityNotFoundException_WhenTagDoesNotExist()
     {
         // Arrange
         var id = Guid.NewGuid();
         _mockService.Setup(s => s.DeleteAsync(TestUserId, id, It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("Not found"));
+            .ThrowsAsync(new EntityNotFoundException("Tag", id));
 
-        // Act
-        var result = await _controller.Delete(id, CancellationToken.None);
-
-        // Assert
-        result.Should().BeOfType<NotFoundResult>();
+        // Act & Assert - Exception propagates to middleware in production
+        await Assert.ThrowsAsync<EntityNotFoundException>(
+            () => _controller.Delete(id, CancellationToken.None));
     }
 
     #endregion

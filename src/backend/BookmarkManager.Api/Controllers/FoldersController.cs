@@ -62,29 +62,17 @@ public class FoldersController : BaseController
     [HttpPut("{id:guid}")]
     public async Task<ActionResult<FolderDto>> Update(Guid id, [FromBody] UpdateFolderDto dto, CancellationToken cancellationToken)
     {
-        try
-        {
-            var folder = await _folderService.UpdateAsync(UserId, id, dto, cancellationToken);
-            return Ok(folder);
-        }
-        catch (InvalidOperationException)
-        {
-            return NotFound();
-        }
+        // EntityNotFoundException is handled by global exception middleware
+        var folder = await _folderService.UpdateAsync(UserId, id, dto, cancellationToken);
+        return Ok(folder);
     }
 
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
-        try
-        {
-            await _folderService.DeleteAsync(UserId, id, cancellationToken);
-            return NoContent();
-        }
-        catch (InvalidOperationException)
-        {
-            return NotFound();
-        }
+        // EntityNotFoundException is handled by global exception middleware
+        await _folderService.DeleteAsync(UserId, id, cancellationToken);
+        return NoContent();
     }
 
     [HttpPost("reorder")]

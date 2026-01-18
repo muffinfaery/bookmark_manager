@@ -1,6 +1,7 @@
 using BookmarkManager.Api.Controllers;
 using BookmarkManager.Application.DTOs;
 using BookmarkManager.Application.Services.Interfaces;
+using BookmarkManager.Domain.Exceptions;
 using BookmarkManager.Tests.Helpers;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -234,19 +235,17 @@ public class FoldersControllerTests
     }
 
     [Fact]
-    public async Task Update_ReturnsNotFound_WhenFolderDoesNotExist()
+    public async Task Update_ThrowsEntityNotFoundException_WhenFolderDoesNotExist()
     {
         // Arrange
         var id = Guid.NewGuid();
         var dto = new UpdateFolderDto("Updated", null, null, null);
         _mockService.Setup(s => s.UpdateAsync(TestUserId, id, dto, It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("Not found"));
+            .ThrowsAsync(new EntityNotFoundException("Folder", id));
 
-        // Act
-        var result = await _controller.Update(id, dto, CancellationToken.None);
-
-        // Assert
-        result.Result.Should().BeOfType<NotFoundResult>();
+        // Act & Assert - Exception propagates to middleware in production
+        await Assert.ThrowsAsync<EntityNotFoundException>(
+            () => _controller.Update(id, dto, CancellationToken.None));
     }
 
     #endregion
@@ -269,18 +268,16 @@ public class FoldersControllerTests
     }
 
     [Fact]
-    public async Task Delete_ReturnsNotFound_WhenFolderDoesNotExist()
+    public async Task Delete_ThrowsEntityNotFoundException_WhenFolderDoesNotExist()
     {
         // Arrange
         var id = Guid.NewGuid();
         _mockService.Setup(s => s.DeleteAsync(TestUserId, id, It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("Not found"));
+            .ThrowsAsync(new EntityNotFoundException("Folder", id));
 
-        // Act
-        var result = await _controller.Delete(id, CancellationToken.None);
-
-        // Assert
-        result.Should().BeOfType<NotFoundResult>();
+        // Act & Assert - Exception propagates to middleware in production
+        await Assert.ThrowsAsync<EntityNotFoundException>(
+            () => _controller.Delete(id, CancellationToken.None));
     }
 
     #endregion

@@ -19,14 +19,8 @@ public class MetadataController : BaseController
         if (string.IsNullOrWhiteSpace(dto.Url))
             return BadRequest(new { message = "URL is required" });
 
-        try
-        {
-            var metadata = await _metadataService.FetchMetadataAsync(dto.Url, cancellationToken);
-            return Ok(metadata);
-        }
-        catch (Exception ex)
-        {
-            return Ok(new UrlMetadataDto(dto.Url, null, null, null, null));
-        }
+        // Metadata fetch failures return default metadata rather than errors (graceful degradation)
+        var metadata = await _metadataService.FetchMetadataAsync(dto.Url, cancellationToken);
+        return Ok(metadata);
     }
 }

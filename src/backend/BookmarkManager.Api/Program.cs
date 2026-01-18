@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using BookmarkManager.Api.Middleware;
 using BookmarkManager.Application;
 using BookmarkManager.Infrastructure;
 using BookmarkManager.Infrastructure.Data;
@@ -78,6 +79,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+app.UseGlobalExceptionHandler();
 
 app.UseCors("AllowFrontend");
 

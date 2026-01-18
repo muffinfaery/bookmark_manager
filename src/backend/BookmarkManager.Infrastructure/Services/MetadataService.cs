@@ -1,16 +1,19 @@
 using BookmarkManager.Application.DTOs;
 using BookmarkManager.Application.Services.Interfaces;
 using HtmlAgilityPack;
+using Microsoft.Extensions.Logging;
 
 namespace BookmarkManager.Infrastructure.Services;
 
 public class MetadataService : IMetadataService
 {
     private readonly HttpClient _httpClient;
+    private readonly ILogger<MetadataService> _logger;
 
-    public MetadataService(HttpClient httpClient)
+    public MetadataService(HttpClient httpClient, ILogger<MetadataService> logger)
     {
         _httpClient = httpClient;
+        _logger = logger;
         _httpClient.Timeout = TimeSpan.FromSeconds(10);
         _httpClient.DefaultRequestHeaders.Add("User-Agent", "BookmarkManager/1.0");
     }
@@ -19,6 +22,8 @@ public class MetadataService : IMetadataService
     {
         try
         {
+            _logger.LogDebug("Fetching metadata for URL: {Url}", url);
+
             var response = await _httpClient.GetStringAsync(url, cancellationToken);
             var doc = new HtmlDocument();
             doc.LoadHtml(response);
@@ -28,11 +33,23 @@ public class MetadataService : IMetadataService
             var favicon = ExtractFavicon(doc, url);
             var image = ExtractImage(doc, url);
 
+            _logger.LogDebug("Successfully fetched metadata for URL: {Url}, Title: {Title}", url, title);
+
             return new UrlMetadataDto(url, title, description, favicon, image);
         }
-        catch
+        catch (HttpRequestException ex)
         {
-            // Return basic metadata if fetch fails
+            _logger.LogWarning(ex, "HTTP error fetching metadata for URL: {Url}", url);
+            return new UrlMetadataDto(url, null, null, GetDefaultFavicon(url), null);
+        }
+        catch (TaskCanceledException ex)
+        {
+            _logger.LogWarning(ex, "Timeout fetching metadata for URL: {Url}", url);
+            return new UrlMetadataDto(url, null, null, GetDefaultFavicon(url), null);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Unexpected error fetching metadata for URL: {Url}", url);
             return new UrlMetadataDto(url, null, null, GetDefaultFavicon(url), null);
         }
     }

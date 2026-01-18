@@ -1,6 +1,7 @@
 using BookmarkManager.Application.DTOs;
 using BookmarkManager.Application.Services.Implementations;
 using BookmarkManager.Domain.Entities;
+using BookmarkManager.Domain.Exceptions;
 using BookmarkManager.Domain.Interfaces;
 using BookmarkManager.Tests.Helpers;
 
@@ -287,7 +288,7 @@ public class FolderServiceTests
             .ReturnsAsync((Folder?)null);
 
         // Act & Assert
-        await Assert.ThrowsAsync<InvalidOperationException>(
+        await Assert.ThrowsAsync<EntityNotFoundException>(
             () => _service.UpdateAsync(userId, id, dto));
     }
 
@@ -302,7 +303,7 @@ public class FolderServiceTests
             .ReturnsAsync(folder);
 
         // Act & Assert
-        await Assert.ThrowsAsync<InvalidOperationException>(
+        await Assert.ThrowsAsync<EntityNotFoundException>(
             () => _service.UpdateAsync(TestDataBuilder.DefaultUserId, folder.Id, dto));
     }
 
@@ -362,7 +363,7 @@ public class FolderServiceTests
             .ReturnsAsync((Folder?)null);
 
         // Act & Assert
-        await Assert.ThrowsAsync<InvalidOperationException>(
+        await Assert.ThrowsAsync<EntityNotFoundException>(
             () => _service.DeleteAsync(userId, id));
     }
 
@@ -376,7 +377,7 @@ public class FolderServiceTests
             .ReturnsAsync(folder);
 
         // Act & Assert
-        await Assert.ThrowsAsync<InvalidOperationException>(
+        await Assert.ThrowsAsync<EntityNotFoundException>(
             () => _service.DeleteAsync(TestDataBuilder.DefaultUserId, folder.Id));
     }
 
