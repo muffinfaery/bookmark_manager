@@ -10,7 +10,7 @@ import {
   Divider,
 } from '@mui/material';
 import { Close, AccountCircle } from '@mui/icons-material';
-import ClerkButton from '@/components/ClerkButton';
+import ClerkButton from '../auth/ClerkButton';
 
 interface SignInDialogProps {
   open: boolean;

@@ -22,7 +22,7 @@ import {
   DragIndicator,
 } from '@mui/icons-material';
 import { localDataApi } from '@/lib/localStorage';
-import ClerkButton from '@/components/ClerkButton';
+import { ClerkButton } from '@/components/auth';
 
 export default function Home() {
   const { isSignedIn, isLoaded } = useAuth();
@@ -124,12 +124,12 @@ export default function Home() {
               sx={{ mb: 2 }}
             >
               <SignInButton mode="modal">
-                <ClerkButton variant="contained" size="large" sx={{ px: 4, py: 1.5 }}>
+                <ClerkButton variant="contained" size="large" style={{ padding: '12px 32px' }}>
                   Sign In
                 </ClerkButton>
               </SignInButton>
               <SignUpButton mode="modal">
-                <ClerkButton variant="outlined" size="large" sx={{ px: 4, py: 1.5 }}>
+                <ClerkButton variant="outlined" size="large" style={{ padding: '12px 32px' }}>
                   Create Account
                 </ClerkButton>
               </SignUpButton>

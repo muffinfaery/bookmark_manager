@@ -1,14 +1,18 @@
 import type { Metadata } from 'next';
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v15-appRouter';
-import ThemeRegistry from '@/components/ThemeRegistry';
-import ClerkThemeProvider from '@/components/ClerkThemeProvider';
-import InstallPrompt from '@/components/InstallPrompt';
+import { ThemeRegistry } from '@/components/settings';
+import { ClerkThemeProvider } from '@/components/auth';
+import { InstallPrompt } from '@/components/pwa';
 import './globals.css';
 
 export const metadata: Metadata = {
   title: 'Bookmark Manager',
   description: 'Organize and manage your bookmarks efficiently',
   manifest: '/manifest.webmanifest',
+  icons: {
+    icon: '/icon.svg',
+    apple: '/icons/icon-192x192.svg',
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',

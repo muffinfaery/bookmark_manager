@@ -29,7 +29,7 @@ import {
   Star,
 } from '@mui/icons-material';
 import { useAuth, SignInButton, SignUpButton, ClerkLoaded, ClerkLoading } from '@clerk/nextjs';
-import ClerkButton from './ClerkButton';
+import ClerkButton from '../auth/ClerkButton';
 import MobileDrawer from './MobileDrawer';
 import { Bookmark, Folder, Tag, FilterType } from '@/types';
 

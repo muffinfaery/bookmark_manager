@@ -440,15 +440,18 @@ export function useBookmarks() {
         // Import bookmarks with folder mapping
         data.bookmarks.forEach((b) => {
           if (!localBookmarksApi.checkDuplicate(b.url)) {
-            localBookmarksApi.create({
+            const created = localBookmarksApi.create({
               url: b.url,
               title: b.title,
               description: b.description,
               favicon: b.favicon,
               folderId: b.folderName ? folderNameToId[b.folderName] : undefined,
               tags: b.tags,
-              isFavorite: b.isFavorite,
             });
+            // Update favorite status if needed (not part of CreateBookmarkDto)
+            if (b.isFavorite) {
+              localBookmarksApi.update(created.id, { isFavorite: true });
+            }
           }
         });
         setBookmarks(localBookmarksApi.getAll());

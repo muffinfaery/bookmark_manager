@@ -19,7 +19,7 @@ import {
   Sync,
   Security,
 } from '@mui/icons-material';
-import ClerkButton from '@/components/ClerkButton';
+import ClerkButton from '../auth/ClerkButton';
 
 interface SyncPromptDialogProps {
   open: boolean;

@@ -4,7 +4,7 @@ import { useState, useMemo, createContext, useContext, useEffect } from 'react';
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import { theme, darkTheme } from '@/lib/theme';
 
-type ThemeMode = 'light' | 'dark' | 'system';
+export type ThemeMode = 'light' | 'dark' | 'system';
 type ResolvedTheme = 'light' | 'dark';
 
 interface ThemeContextType {

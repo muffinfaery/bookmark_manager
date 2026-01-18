@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
-import { useAuth, ClerkLoaded, ClerkLoading } from '@clerk/nextjs';
+import { ClerkLoaded, ClerkLoading } from '@clerk/nextjs';
 import {
   Box,
   AppBar,
@@ -18,38 +17,39 @@ import {
   useTheme,
   Skeleton,
 } from '@mui/material';
+import { Search, Add, AccountCircle } from '@mui/icons-material';
+import { useDashboard } from '@/contexts';
+import { Sidebar, MobileBottomNav } from '@/components/navigation';
+import { SortableBookmarkGrid, AddBookmarkDialog } from '@/components/bookmarks';
 import {
-  Search,
-  Add,
-  AccountCircle,
-} from '@mui/icons-material';
-import { useThemeMode } from '@/components/ThemeRegistry';
-import { useBookmarks } from '@/hooks/useBookmarks';
-import Sidebar from '@/components/Sidebar';
-import MobileBottomNav from '@/components/MobileBottomNav';
-import SortableBookmarkGrid from '@/components/SortableBookmarkGrid';
-import AddBookmarkDialog from '@/components/AddBookmarkDialog';
-import ImportDialog from '@/components/ImportDialog';
-import ExportDialog from '@/components/ExportDialog';
-import SyncPromptDialog from '@/components/SyncPromptDialog';
-import SettingsDrawer from '@/components/SettingsDrawer';
-import UserProfileDialog from '@/components/UserProfileDialog';
-import SignInDialog from '@/components/SignInDialog';
-import MigrationDialog from '@/components/MigrationDialog';
-import { localDataApi } from '@/lib/localStorage';
-import { Bookmark, CreateBookmarkDto, UpdateBookmarkDto } from '@/types';
+  ImportDialog,
+  ExportDialog,
+  SyncPromptDialog,
+  UserProfileDialog,
+  SignInDialog,
+  MigrationDialog,
+  DeleteFolderDialog,
+  DeleteTagDialog,
+} from '@/components/dialogs';
+import { SettingsDrawer } from '@/components/settings';
 
 export default function DashboardPage() {
-  const { isSignedIn } = useAuth();
   const muiTheme = useTheme();
   const isMobile = useMediaQuery(muiTheme.breakpoints.down('md'));
-  const { mode, setThemeMode } = useThemeMode();
+
   const {
+    // Auth
+    isSignedIn,
+
+    // Data
     bookmarks,
     folders,
     tags,
     loading,
     error,
+    filteredBookmarks,
+
+    // View and filter state
     viewMode,
     setViewMode,
     filterType,
@@ -60,183 +60,75 @@ export default function DashboardPage() {
     setSelectedTagId,
     searchQuery,
     setSearchQuery,
+
+    // Theme
+    themeMode,
+    setThemeMode,
+
+    // Dialog state
+    dialogs,
+    openAddDialog,
+    closeAddDialog,
+    closeImportDialog,
+    closeExportDialog,
+    openSettingsDrawer,
+    closeSettingsDrawer,
+    openUserProfile,
+    closeUserProfile,
+    openSignInDialog,
+    closeSignInDialog,
+
+    // Delete confirmation dialogs
+    folderToDelete,
+    tagToDelete,
+    closeDeleteFolderDialog,
+    closeDeleteTagDialog,
+    confirmDeleteFolder,
+    confirmDeleteTag,
+
+    // Editing
+    editingBookmark,
+
+    // Sidebar
+    sidebarCollapsed,
+    toggleSidebar,
+
+    // Snackbar
+    snackbar,
+    closeSnackbar,
+
+    // Sync prompt
     showSyncPrompt,
-    setShowSyncPrompt,
-    filteredBookmarks,
-    createBookmark,
-    updateBookmark,
-    deleteBookmark,
+    closeSyncPrompt,
+
+    // Migration
+    localDataForMigration,
+    migrationDialogOpen,
+    closeMigrationDialog,
+
+    // Page title
+    pageTitle,
+
+    // Handlers
+    handleSearch,
+    handleSaveBookmark,
+    handleEditBookmark,
+    handleDeleteBookmark,
+    handleBookmarkClick,
+    handleCreateFolder,
+    handleDeleteFolder,
+    handleDeleteTag,
+    handleExportData,
+    handleImportData,
+    handleMigrate,
+    handleSkipMigration,
+    openImportDialog,
+    openExportDialog,
+
+    // Data operations
     toggleFavorite,
-    trackClick,
-    createFolder,
-    deleteFolder,
-    deleteTag,
-    exportData,
-    importData,
-    refreshData,
     reorderBookmarks,
-  } = useBookmarks();
-
-  const [addDialogOpen, setAddDialogOpen] = useState(false);
-  const [importDialogOpen, setImportDialogOpen] = useState(false);
-  const [exportDialogOpen, setExportDialogOpen] = useState(false);
-  const [editingBookmark, setEditingBookmark] = useState<Bookmark | null>(null);
-  const [settingsDrawerOpen, setSettingsDrawerOpen] = useState(false);
-  const [userProfileOpen, setUserProfileOpen] = useState(false);
-  const [signInDialogOpen, setSignInDialogOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [migrationDialogOpen, setMigrationDialogOpen] = useState(false);
-  const [localDataForMigration, setLocalDataForMigration] = useState<{ bookmarks: any[]; folders: any[] } | null>(null);
-  const hasCheckedMigration = useRef(false);
-  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
-    open: false,
-    message: '',
-    severity: 'success',
-  });
-
-  // Check for local data to migrate when user signs in
-  useEffect(() => {
-    if (isSignedIn && !hasCheckedMigration.current) {
-      hasCheckedMigration.current = true;
-      const localData = localDataApi.export();
-      if (localData.bookmarks.length > 0 || localData.folders.length > 0) {
-        setLocalDataForMigration(localData);
-        setMigrationDialogOpen(true);
-      }
-    }
-  }, [isSignedIn]);
-
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const query = e.target.value;
-    setSearchQuery(query);
-    if (query) {
-      setFilterType('search');
-    } else {
-      setFilterType('all');
-    }
-  };
-
-  const handleSaveBookmark = useCallback(
-    async (dto: CreateBookmarkDto | UpdateBookmarkDto) => {
-      try {
-        if (editingBookmark) {
-          await updateBookmark(editingBookmark.id, dto as UpdateBookmarkDto);
-          setSnackbar({ open: true, message: 'Bookmark updated!', severity: 'success' });
-        } else {
-          await createBookmark(dto as CreateBookmarkDto);
-          setSnackbar({ open: true, message: 'Bookmark added!', severity: 'success' });
-        }
-        setEditingBookmark(null);
-        await refreshData();
-      } catch (err) {
-        throw err;
-      }
-    },
-    [editingBookmark, createBookmark, updateBookmark, refreshData]
-  );
-
-  const handleEditBookmark = (bookmark: Bookmark) => {
-    setEditingBookmark(bookmark);
-    setAddDialogOpen(true);
-  };
-
-  const handleDeleteBookmark = async (id: string) => {
-    try {
-      await deleteBookmark(id);
-      setSnackbar({ open: true, message: 'Bookmark deleted', severity: 'success' });
-    } catch (err) {
-      setSnackbar({ open: true, message: 'Failed to delete bookmark', severity: 'error' });
-    }
-  };
-
-  const handleBookmarkClick = async (bookmark: Bookmark) => {
-    await trackClick(bookmark.id);
-    window.open(bookmark.url, '_blank', 'noopener,noreferrer');
-  };
-
-  const handleCreateFolder = async (name: string) => {
-    try {
-      const folder = await createFolder({ name });
-      setSnackbar({ open: true, message: 'Folder created!', severity: 'success' });
-      return folder;
-    } catch (err) {
-      setSnackbar({ open: true, message: 'Failed to create folder', severity: 'error' });
-      throw err;
-    }
-  };
-
-  const handleDeleteFolder = async (id: string) => {
-    try {
-      await deleteFolder(id);
-      if (selectedFolderId === id) {
-        setFilterType('all');
-        setSelectedFolderId(null);
-      }
-      setSnackbar({ open: true, message: 'Folder deleted', severity: 'success' });
-    } catch (err) {
-      setSnackbar({ open: true, message: 'Failed to delete folder', severity: 'error' });
-    }
-  };
-
-  const handleDeleteTag = async (id: string) => {
-    try {
-      await deleteTag(id);
-      if (selectedTagId === id) {
-        setFilterType('all');
-        setSelectedTagId(null);
-      }
-      setSnackbar({ open: true, message: 'Tag deleted', severity: 'success' });
-    } catch (err) {
-      setSnackbar({ open: true, message: 'Failed to delete tag', severity: 'error' });
-    }
-  };
-
-  const handleExport = () => {
-    setExportDialogOpen(true);
-  };
-
-  const handleExportData = async () => {
-    const data = await exportData();
-    setSnackbar({ open: true, message: 'Bookmarks exported!', severity: 'success' });
-    return data;
-  };
-
-  const handleImport = () => {
-    setImportDialogOpen(true);
-  };
-
-  const handleImportData = async (data: { bookmarks: any[]; folders: any[] }) => {
-    try {
-      await importData(data);
-      setSnackbar({ open: true, message: `Imported ${data.bookmarks.length} bookmarks!`, severity: 'success' });
-      await refreshData();
-    } catch (err) {
-      throw err;
-    }
-  };
-
-  const getPageTitle = () => {
-    switch (filterType) {
-      case 'favorites':
-        return 'Favorites';
-      case 'folder':
-        if (selectedFolderId) {
-          const folder = folders.find((f) => f.id === selectedFolderId);
-          return folder?.name || 'Folder';
-        }
-        return 'Uncategorized';
-      case 'tag':
-        if (selectedTagId) {
-          const tag = tags.find((t) => t.id === selectedTagId);
-          return `Tag: ${tag?.name || ''}`;
-        }
-        return 'All Bookmarks';
-      case 'search':
-        return 'All Bookmarks';
-      default:
-        return 'All Bookmarks';
-    }
-  };
+  } = useDashboard();
 
   return (
     <Box sx={{ display: 'flex', height: '100vh', bgcolor: 'background.default' }}>
@@ -255,8 +147,8 @@ export default function DashboardPage() {
           onCreateFolder={handleCreateFolder}
           onDeleteFolder={handleDeleteFolder}
           onDeleteTag={handleDeleteTag}
-          onOpenSettings={() => setSettingsDrawerOpen(true)}
-          onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+          onOpenSettings={openSettingsDrawer}
+          onToggleCollapse={toggleSidebar}
         />
       )}
 
@@ -267,7 +159,7 @@ export default function DashboardPage() {
           <AppBar position="static" color="default" elevation={1}>
             <Toolbar>
               <Typography variant="h6" fontWeight={600} sx={{ flex: 1 }}>
-                {getPageTitle()}
+                {pageTitle}
               </Typography>
             </Toolbar>
           </AppBar>
@@ -292,14 +184,7 @@ export default function DashboardPage() {
                 }}
               />
 
-              <Button
-                variant="contained"
-                startIcon={<Add />}
-                onClick={() => {
-                  setEditingBookmark(null);
-                  setAddDialogOpen(true);
-                }}
-              >
+              <Button variant="contained" startIcon={<Add />} onClick={openAddDialog}>
                 Add Bookmark
               </Button>
 
@@ -309,14 +194,14 @@ export default function DashboardPage() {
                 </ClerkLoading>
                 <ClerkLoaded>
                   {isSignedIn ? (
-                    <IconButton onClick={() => setUserProfileOpen(true)} color="inherit">
+                    <IconButton onClick={openUserProfile} color="inherit">
                       <AccountCircle />
                     </IconButton>
                   ) : (
                     <Button
                       variant="outlined"
                       startIcon={<AccountCircle />}
-                      onClick={() => setSignInDialogOpen(true)}
+                      onClick={openSignInDialog}
                     >
                       Sign In
                     </Button>
@@ -347,14 +232,7 @@ export default function DashboardPage() {
                   ? 'Try a different search term'
                   : 'Add your first bookmark to get started'}
               </Typography>
-              <Button
-                variant="contained"
-                startIcon={<Add />}
-                onClick={() => {
-                  setEditingBookmark(null);
-                  setAddDialogOpen(true);
-                }}
-              >
+              <Button variant="contained" startIcon={<Add />} onClick={openAddDialog}>
                 Add Bookmark
               </Button>
             </Box>
@@ -374,11 +252,8 @@ export default function DashboardPage() {
 
       {/* Dialogs */}
       <AddBookmarkDialog
-        open={addDialogOpen}
-        onClose={() => {
-          setAddDialogOpen(false);
-          setEditingBookmark(null);
-        }}
+        open={dialogs.addDialogOpen}
+        onClose={closeAddDialog}
         onSave={handleSaveBookmark}
         folders={folders}
         tags={tags}
@@ -387,75 +262,63 @@ export default function DashboardPage() {
       />
 
       <ImportDialog
-        open={importDialogOpen}
-        onClose={() => setImportDialogOpen(false)}
+        open={dialogs.importDialogOpen}
+        onClose={closeImportDialog}
         onImport={handleImportData}
         existingUrls={bookmarks.map((b) => b.url)}
       />
 
       <ExportDialog
-        open={exportDialogOpen}
-        onClose={() => setExportDialogOpen(false)}
+        open={dialogs.exportDialogOpen}
+        onClose={closeExportDialog}
         onExport={handleExportData}
       />
 
-      <SyncPromptDialog
-        open={showSyncPrompt}
-        onClose={() => setShowSyncPrompt(false)}
-      />
+      <SyncPromptDialog open={showSyncPrompt} onClose={closeSyncPrompt} />
 
       <SettingsDrawer
-        open={settingsDrawerOpen}
-        onClose={() => setSettingsDrawerOpen(false)}
+        open={dialogs.settingsDrawerOpen}
+        onClose={closeSettingsDrawer}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
-        themeMode={mode}
+        themeMode={themeMode}
         onThemeModeChange={setThemeMode}
-        onImport={handleImport}
-        onExport={handleExport}
+        onImport={openImportDialog}
+        onExport={openExportDialog}
       />
 
-      <UserProfileDialog
-        open={userProfileOpen}
-        onClose={() => setUserProfileOpen(false)}
-      />
+      <UserProfileDialog open={dialogs.userProfileOpen} onClose={closeUserProfile} />
 
-      <SignInDialog
-        open={signInDialogOpen}
-        onClose={() => setSignInDialogOpen(false)}
-      />
+      <SignInDialog open={dialogs.signInDialogOpen} onClose={closeSignInDialog} />
 
       {localDataForMigration && (
         <MigrationDialog
           open={migrationDialogOpen}
-          onClose={() => setMigrationDialogOpen(false)}
+          onClose={closeMigrationDialog}
           localBookmarkCount={localDataForMigration.bookmarks.length}
           localFolderCount={localDataForMigration.folders.length}
-          onMigrate={async () => {
-            await importData({
-              bookmarks: localDataForMigration.bookmarks,
-              folders: localDataForMigration.folders,
-            });
-            localDataApi.clear();
-            setLocalDataForMigration(null);
-            await refreshData();
-            setSnackbar({
-              open: true,
-              message: `Migrated ${localDataForMigration.bookmarks.length} bookmark${localDataForMigration.bookmarks.length !== 1 ? 's' : ''}!`,
-              severity: 'success',
-            });
-          }}
-          onSkip={() => {
-            localDataApi.clear();
-            setLocalDataForMigration(null);
-            setSnackbar({
-              open: true,
-              message: 'Demo data cleared',
-              severity: 'success',
-            });
-          }}
+          onMigrate={handleMigrate}
+          onSkip={handleSkipMigration}
         />
       )}
+
+      <DeleteFolderDialog
+        open={dialogs.deleteFolderDialogOpen}
+        folder={folderToDelete}
+        folders={folders}
+        bookmarks={bookmarks}
+        onClose={closeDeleteFolderDialog}
+        onConfirm={confirmDeleteFolder}
+      />
+
+      <DeleteTagDialog
+        open={dialogs.deleteTagDialogOpen}
+        tag={tagToDelete}
+        tags={tags}
+        bookmarks={bookmarks}
+        onClose={closeDeleteTagDialog}
+        onConfirm={confirmDeleteTag}
+      />
 
       {/* Mobile Bottom Navigation */}
       {isMobile && (
@@ -471,21 +334,18 @@ export default function DashboardPage() {
           onFolderSelect={setSelectedFolderId}
           onTagSelect={setSelectedTagId}
           onSearchChange={setSearchQuery}
-          onAddBookmark={() => {
-            setEditingBookmark(null);
-            setAddDialogOpen(true);
-          }}
+          onAddBookmark={openAddDialog}
           onCreateFolder={handleCreateFolder}
           onDeleteFolder={handleDeleteFolder}
           onDeleteTag={handleDeleteTag}
           onBookmarkClick={handleBookmarkClick}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
-          themeMode={mode}
+          themeMode={themeMode}
           onThemeModeChange={setThemeMode}
-          onImport={handleImport}
-          onExport={handleExport}
-          onOpenUserProfile={() => setUserProfileOpen(true)}
+          onImport={openImportDialog}
+          onExport={openExportDialog}
+          onOpenUserProfile={openUserProfile}
         />
       )}
 
@@ -493,15 +353,11 @@ export default function DashboardPage() {
       <Snackbar
         open={snackbar.open}
         autoHideDuration={3000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        onClose={closeSnackbar}
         anchorOrigin={{ vertical: 'bottom', horizontal: isMobile ? 'center' : 'right' }}
         sx={{ mb: isMobile ? 8 : 0 }}
       >
-        <Alert
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          severity={snackbar.severity}
-          variant="filled"
-        >
+        <Alert onClose={closeSnackbar} severity={snackbar.severity} variant="filled">
           {snackbar.message}
         </Alert>
       </Snackbar>
