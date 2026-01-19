@@ -91,7 +91,7 @@ bookmark_manager/
 
 1. Clone the repository:
 ```bash
-git clone <repo-url>
+git clone https://github.com/muffinfaery/bookmark_manager.git
 cd bookmark_manager
 ```
 
