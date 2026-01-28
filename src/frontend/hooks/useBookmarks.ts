@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import Fuse from 'fuse.js';
 import {
@@ -37,6 +37,10 @@ export function useBookmarks() {
   const [selectedTagId, setSelectedTagId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSyncPrompt, setShowSyncPrompt] = useState(false);
+
+  // Ref to track current bookmarks for optimistic updates rollback
+  const bookmarksRef = useRef<Bookmark[]>(bookmarks);
+  bookmarksRef.current = bookmarks;
 
   // Configure Fuse.js for fuzzy search with weighted fields
   const fuse = useMemo(() => {
@@ -225,6 +229,22 @@ export function useBookmarks() {
 
   const reorderBookmarks = useCallback(
     async (items: { id: string; sortOrder: number }[]) => {
+      // Store previous state for rollback on error (use ref to avoid stale closure)
+      const previousBookmarks = [...bookmarksRef.current];
+
+      // Optimistic update - update UI immediately
+      setBookmarks((prev) => {
+        const updated = [...prev];
+        items.forEach(({ id, sortOrder }) => {
+          const bookmark = updated.find((b) => b.id === id);
+          if (bookmark) {
+            bookmark.sortOrder = sortOrder;
+          }
+        });
+        return updated.sort((a, b) => a.sortOrder - b.sortOrder);
+      });
+
+      // Persist to backend/localStorage in background
       try {
         if (isSignedIn) {
           const token = await getToken();
@@ -233,17 +253,9 @@ export function useBookmarks() {
         } else {
           localBookmarksApi.reorder(items);
         }
-        setBookmarks((prev) => {
-          const updated = [...prev];
-          items.forEach(({ id, sortOrder }) => {
-            const bookmark = updated.find((b) => b.id === id);
-            if (bookmark) {
-              bookmark.sortOrder = sortOrder;
-            }
-          });
-          return updated.sort((a, b) => a.sortOrder - b.sortOrder);
-        });
       } catch (err) {
+        // Rollback on error
+        setBookmarks(previousBookmarks);
         throw err;
       }
     },

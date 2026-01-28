@@ -29,18 +29,20 @@ function SortableBookmarkCard({
     listeners,
     setNodeRef,
     transform,
+    transition,
     isDragging,
   } = useSortable({ id: bookmark.id });
 
-  // Memoize style to prevent recalculation
+  // Memoize style to prevent recalculation - include transition for smooth animations
   const style = useMemo<React.CSSProperties>(() => ({
     transform: transform
       ? `translate3d(${Math.round(transform.x)}px, ${Math.round(transform.y)}px, 0)`
       : undefined,
-    opacity: isDragging ? 0.4 : undefined,
+    transition: transition || undefined,
+    opacity: isDragging ? 0.5 : undefined,
     zIndex: isDragging ? 1000 : undefined,
     pointerEvents: isDragging ? 'none' as const : undefined,
-  }), [transform, isDragging]);
+  }), [transform, transition, isDragging]);
 
   return (
     <Box
